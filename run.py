@@ -3,11 +3,11 @@ import subprocess
 
 maxProcess = 8
 runCount = 100
-exePath = R"C:\Users\huww\source\homeworks\tsp_ga\Release\tsp_ga.exe"
+exePath = R".\Release\tsp_ga.exe"
 outPutDir = R".\results"
 def run(seed):
     with open(outPutDir + "\\output_{}.txt".format(seed), "w") as f:
-        subprocess.check_call([exePath, str(seed)], stdout=f)
+        subprocess.check_call([exePath, str(seed)], stdout=f, cwd=outPutDir)
 
 with ThreadPoolExecutor(max_workers=maxProcess) as executor:
     futures = {executor.submit(run, seed): seed for seed in range(runCount)}
