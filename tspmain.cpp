@@ -6,17 +6,15 @@ The GAlib-based genetic algorithm code for the Travelling Salesman Problem (TSP)
 
 #include <math.h>
 #include <ctime>
+#include <string>
+#include <iostream>
+#include <sstream>
 #include "ga/GASStateGA.h"
 #include "ga/GASimpleGA.h"
 #include "ga/GA1DArrayGenome.h"
 #include "ga/garandom.h"
-#include "ga/std_stream.h"
 
-#define cout STD_COUT
-#define cerr STD_CERR
-#define endl STD_ENDL
-#define ostream STD_OSTREAM
-#define ifstream STD_IFSTREAM
+using namespace std;
 
 // Set this up for your favorite TSP.  The sample one is a contrived problem
 // with the towns laid out in a grid (so it is easy to figure out what the 
@@ -24,10 +22,10 @@ The GAlib-based genetic algorithm code for the Travelling Salesman Problem (TSP)
 // shortest path).  File format is that used by the TSPLIB problems.  You can 
 // grab more problems from TSPLIB.
 // 
-#define MAX_TOWNS 100
-#define TSP_FILE "berlin52.txt"
+constexpr int MAX_TOWNS = 64;
+const string TSP_FILE = "berlin52.txt";
 
-int x[MAX_TOWNS],y[MAX_TOWNS];//Ã¿¸ö³ÇÊĞµÄx×ø±êºÍy×ø±ê
+int x[MAX_TOWNS], y[MAX_TOWNS];//Ã¿¸ö³ÇÊĞµÄx×ø±êºÍy×ø±ê
 int DISTANCE[MAX_TOWNS][MAX_TOWNS];//Ã¿Á½¸ö³ÇÊĞÖ®¼äµÄÂÃĞĞ³É±¾£¬ÊÇ¶Ô³ÆµÄ
 
 
@@ -38,205 +36,258 @@ int   TSPCrossover(const GAGenome&, const GAGenome&, GAGenome*, GAGenome*);//Õë¶
 
 void writeTSPPath(ostream & os, GAGenome& g);//½«Ö¸¶¨È¾É«ÌåµÄÂÃĞĞÂ·ÏßÊä³öµ½Ö¸¶¨ÎÄ¼ş
 
-int main() {
-  cout << "The GAlib program for the Travelling Salesman Problem (TSP) Berlin52.\n" << endl;
+GABoolean TSPTerminate(GAGeneticAlgorithm & ga) {
+	if (ga.convergence() == 0) return gaFalse;
+	return ga.convergence() <= ga.pConvergence() || ga.generation() >= ga.nGenerations() ? gaTrue : gaFalse;
+}
 
-  //´ÓBerlin52.txtÎÄ¼ş¶Á³ö¸÷³ÇÊĞ×ø±ê
-  double CityID;
-  ifstream in(TSP_FILE); 
-  if(!in) {
-    cerr << "could not read data file " << TSP_FILE << "\n";
-    exit(1);
-  }
-  int ntowns=0;
-  do {
-    in >> CityID;
-    in >> x[ntowns];
-    in >> y[ntowns];
-    ntowns++;
-  } while(!in.eof() && ntowns < MAX_TOWNS);
-  in.close();
-  if(ntowns >= MAX_TOWNS) {
-    cerr << "data file contains more towns than allowed for in the fixed\n";
-    cerr << "arrays.  Recompile the program with larger arrays or try a\n";
-    cerr << "smaller problem.\n";
-    exit(1);
-  }
+int main(int argc, char ** argv) {
+	cout << "The GAlib program for the Travelling Salesman Problem (TSP) Berlin52.\n" << endl;
 
-  //¼ÆËãÈÎÒâÁ½¸ö³ÇÊĞ¼äµÄÂÃĞĞ³É±¾
-  double dx,dy;
-  for(int i=0;i<ntowns;i++) {
-    for(int j=i; j<ntowns;j++) {
-      dx=x[i]-x[j]; dy=y[i]-y[j];
-      DISTANCE[j][i]=DISTANCE[i][j]=floor(0.5 + sqrt(dx*dx+dy*dy) );//×¢ÒâÈ¡ËÄÉáÎåÈëÖ®ºóµÄÕûÊıÖµ
-    }
-  }
+	//´ÓBerlin52.txtÎÄ¼ş¶Á³ö¸÷³ÇÊĞ×ø±ê
+	double CityID;
+	ifstream in(TSP_FILE);
+	if (!in) {
+		cerr << "could not read data file " << TSP_FILE << "\n";
+		exit(1);
+	}
+	int ntowns = 0;
+	do {
+		in >> CityID;
+		in >> x[ntowns];
+		in >> y[ntowns];
+		ntowns++;
+	} while (!in.eof() && ntowns < MAX_TOWNS);
+	in.close();
+	if (ntowns >= MAX_TOWNS) {
+		cerr << "data file contains more towns than allowed for in the fixed\n";
+		cerr << "arrays.  Recompile the program with larger arrays or try a\n";
+		cerr << "smaller problem.\n";
+		exit(1);
+	}
 
-  //¶¨ÒåTSPÎÊÌâµÄ±àÂë·½°¸ÎªÒ»Î¬µÄÕûÊıÊı×é£¬Æä¹Ì¶¨³¤¶ÈÎª³ÇÊĞ¸öÊı
-  GA1DArrayGenome<int> genome(ntowns);
+	//¼ÆËãÈÎÒâÁ½¸ö³ÇÊĞ¼äµÄÂÃĞĞ³É±¾
+	double dx, dy;
+	for (int i = 0; i < ntowns; i++) {
+		for (int j = i; j < ntowns; j++) {
+			dx = x[i] - x[j]; dy = y[i] - y[j];
+			DISTANCE[j][i] = DISTANCE[i][j] = floor(0.5 + sqrt(dx*dx + dy * dy));//×¢ÒâÈ¡ËÄÉáÎåÈëÖ®ºóµÄÕûÊıÖµ
+		}
+	}
 
-  genome.evaluator(::TSPObjective);//ÎªÈ¾É«ÌåÖ¸¶¨¼ÆËãÄ¿±êÖµµÄº¯Êı
-  genome.initializer(::TSPInitializer);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ³õÊ¼»¯Ëã×Ó
-  genome.crossover(::TSPCrossover);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ½»²æËã×Ó
-  genome.mutator(::TSPMutator);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ±äÒìËã×Ó
+	//¶¨ÒåTSPÎÊÌâµÄ±àÂë·½°¸ÎªÒ»Î¬µÄÕûÊıÊı×é£¬Æä¹Ì¶¨³¤¶ÈÎª³ÇÊĞ¸öÊı
+	GA1DArrayGenome<int> genome(ntowns);
 
-  GASteadyStateGA ga(genome); ga.nReplacement(2); ga.nGenerations(500000);//Ñ¡ÓÃÎÈÌ¬ÒÅ´«Ëã·¨½øĞĞTSPÎÊÌâÇó½â£¬Ö¸¶¨ÆäÈ¾É«Ìå±àÂë·½Ê½¡¢Ã¿Ò»´úÒªÌæ»»µÄ¸öÌåÊı=2¡¢×ÜµÄÔËĞĞ´úÊı500000£¬ÄÇÃ´ËÑË÷µÄ×Ü¸öÌåÊı=2*500000=1000000
-  //GASimpleGA ga(genome); ga.elitist(gaTrue); ga.nGenerations(5000);//Ñ¡ÓÃ¼òµ¥ÒÅ´«Ëã·¨½øĞĞTSPÎÊÌâÇó½â£¬²ÉÓÃ¾«Ó¢±£Áô²ßÂÔ£¬Ö¸¶¨ÆäÈ¾É«Ìå±àÂë·½Ê½¡¢×ÜµÄÔËĞĞ´úÊı10000£¬ÄÇÃ´ËÑË÷µÄ×Ü¸öÌåÊı=200£¨ÖÖÈº´óĞ¡£©*5000=1000000
-  ga.minimize();//ÎªÒÅ´«Ëã·¨Ö¸¶¨ÓÅ»¯Ä¿µÄÊÇ½«Ä¿±êº¯ÊıÖµ×îĞ¡»¯
-  ga.populationSize(200);//ÎªÒÅ´«Ëã·¨Ö¸¶¨ÖÖÈº´óĞ¡Îª200
-  ga.pMutation(0.02);//ÎªÒÅ´«Ëã·¨Ö¸¶¨±äÒì¸ÅÂÊ
-  ga.pCrossover(0.8);//ÎªÒÅ´«Ëã·¨Ö¸¶¨½»²æ¸ÅÂÊ
+	genome.evaluator(::TSPObjective);//ÎªÈ¾É«ÌåÖ¸¶¨¼ÆËãÄ¿±êÖµµÄº¯Êı
+	genome.initializer(::TSPInitializer);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ³õÊ¼»¯Ëã×Ó
+	genome.crossover(::TSPCrossover);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ½»²æËã×Ó
+	genome.mutator(::TSPMutator);//ÎªÈ¾É«ÌåÖ¸¶¨×Ô¶¨ÒåµÄ±äÒìËã×Ó
 
-  cout << "initializing..."<<"\n"; cout.flush();
-  unsigned int seed = clock();
-  ga.initialize(seed);//Ê¹ÓÃ´ÓÊ±ÖÓµÃµ½µÄËæ»úÖÖ×Ó³õÊ¼»¯ÒÅ´«Ëã·¨
+	GASteadyStateGA ga(genome); ga.nReplacement(2); ga.nGenerations(500000); //Ñ¡ÓÃÎÈÌ¬ÒÅ´«Ëã·¨½øĞĞTSPÎÊÌâÇó½â£¬Ö¸¶¨ÆäÈ¾É«Ìå±àÂë·½Ê½¡¢Ã¿Ò»´úÒªÌæ»»µÄ¸öÌåÊı=2¡¢×ÜµÄÔËĞĞ´úÊı500000£¬ÄÇÃ´ËÑË÷µÄ×Ü¸öÌåÊı=2*500000=1000000
+	//GASimpleGA ga(genome); ga.elitist(gaTrue); ga.nGenerations(50000);//Ñ¡ÓÃ¼òµ¥ÒÅ´«Ëã·¨½øĞĞTSPÎÊÌâÇó½â£¬²ÉÓÃ¾«Ó¢±£Áô²ßÂÔ£¬Ö¸¶¨ÆäÈ¾É«Ìå±àÂë·½Ê½¡¢×ÜµÄÔËĞĞ´úÊı10000£¬ÄÇÃ´ËÑË÷µÄ×Ü¸öÌåÊı=200£¨ÖÖÈº´óĞ¡£©*5000=1000000
+	ga.minimize();//ÎªÒÅ´«Ëã·¨Ö¸¶¨ÓÅ»¯Ä¿µÄÊÇ½«Ä¿±êº¯ÊıÖµ×îĞ¡»¯
+	ga.populationSize(2000);//ÎªÒÅ´«Ëã·¨Ö¸¶¨ÖÖÈº´óĞ¡Îª200
+	ga.pMutation(0.02);//ÎªÒÅ´«Ëã·¨Ö¸¶¨±äÒì¸ÅÂÊ
+	ga.pCrossover(0.8);//ÎªÒÅ´«Ëã·¨Ö¸¶¨½»²æ¸ÅÂÊ
+	ga.terminator(::TSPTerminate);
+	ga.pConvergence(1.0);
+	ga.nConvergence(50000);
 
-  cout << "evolving..."<<"\n"; cout.flush();
-  std::fstream fgacurve;
-  fgacurve.open("tspgacurve.txt",std::ios::out);
+	unsigned int seed = time(nullptr);
+	if (argc > 1)
+	{
+		stringstream(argv[1]) >> seed;
+	}
+	cout << "initializing... seed: " << seed << endl;
+	ga.initialize(seed);//Ê¹ÓÃ´ÓÊ±ÖÓµÃµ½µÄËæ»úÖÖ×Ó³õÊ¼»¯ÒÅ´«Ëã·¨
 
-  //ÒÅ´«Ëã·¨¿ªÊ¼µü´ú½ø»¯£¬Ö±µ½´ïµ½Ö¸¶¨µÄ´úÊı
-  while(!ga.done()) {
-    ga.step();//½ø»¯Ò»´ú
-    if(ga.generation() % (ga.nGenerations()/100) == 0) 
-	{//½ø»¯¹ı³ÌÖĞÈ¡100¸ö²ÉÑùµã£¬¼ÇÂ¼½ø»¯¹ı³ÌÖĞµÄ×îÓÅÄ¿±êÖµÊÕÁ²ĞÅÏ¢µ½ÎÄ¼ş
-		int bestscore = ga.statistics().bestIndividual().score();
-		cout << ga.generation() << "    " << bestscore << "\n"; cout.flush();
-		fgacurve << ga.generation() << "    " << bestscore << "\n";
-    }
-  }
-  fgacurve.close();
+	cout << "evolving..." << endl;
+	stringstream curveFileName;
+	curveFileName << "tspgacurve_" << seed << ".txt";
+	std::fstream fgacurve;
+	fgacurve.open(curveFileName.str(), std::ios::out);
 
-  //ÒÅ´«Ëã·¨µü´úÖÕÖ¹ºóÊä³öÕÒµ½µÄ×îÓÅÂÃĞĞÂ·Ïßµ½ÎÄ¼ş
-  genome = ga.statistics().bestIndividual();
-  //cout << "\n" << "the shortest path found is "  << "\n";
-  //writeTSPPath(cout, genome);
-  std::fstream fbestpath;
-  fbestpath.open("tsppath.txt",std::ios::out);
-  writeTSPPath(fbestpath, genome);
-  fbestpath.close();
-  cout << "the distance of the shortest path found: " << genome.score() << "\n";
+	//ÒÅ´«Ëã·¨¿ªÊ¼µü´ú½ø»¯£¬Ö±µ½´ïµ½Ö¸¶¨µÄ´úÊı
+	while (!ga.done()) {
+		ga.step();//½ø»¯Ò»´ú
+		if (ga.generation() % (ga.nGenerations() / 200) == 0)
+		{//½ø»¯¹ı³ÌÖĞÈ¡100¸ö²ÉÑùµã£¬¼ÇÂ¼½ø»¯¹ı³ÌÖĞµÄ×îÓÅÄ¿±êÖµÊÕÁ²ĞÅÏ¢µ½ÎÄ¼ş
+			int bestscore = ga.statistics().bestIndividual().score();
+			cout << ga.generation() << "\t" << bestscore << endl;
+			fgacurve << ga.generation() << "\t" << bestscore << "\n";
+		}
+	}
+	fgacurve.close();
 
-  return 0;
+	//ÒÅ´«Ëã·¨µü´úÖÕÖ¹ºóÊä³öÕÒµ½µÄ×îÓÅÂÃĞĞÂ·Ïßµ½ÎÄ¼ş
+	auto & statistics = ga.statistics();
+	cout << statistics << endl;
+	genome = statistics.bestIndividual();
+	//cout << "\n" << "the shortest path found is "  << "\n";
+	//writeTSPPath(cout, genome);
+	std::fstream fbestpath;
+	stringstream pathFileName;
+	pathFileName << "tsppath_" << seed << ".txt";
+	fbestpath.open(pathFileName.str(), std::ios::out);
+	writeTSPPath(fbestpath, genome);
+	fbestpath.close();
+	cout << "the distance of the shortest path found: " << genome.score() << endl;
+
+	return 0;
 }
 
 
 // Here are the genome operators that we want to use for this problem.
 //¼ÆËãÈ¾É«ÌåµÄÂÃĞĞ×Ü·ÑÓÃµÄÄ¿±êº¯Êı
 float TSPObjective(GAGenome& g) {
-  GA1DArrayGenome<int> & genome = (GA1DArrayGenome<int> &)g;
-  int genomelength = genome.size();//genome.size()»ñÈ¡È¾É«ÌåµÄ³¤¶È
-  float dist = 0;
-  int xx;
-  int yy;
+	GA1DArrayGenome<int> & genome = (GA1DArrayGenome<int> &)g;
+	int genomelength = genome.size();//genome.size()»ñÈ¡È¾É«ÌåµÄ³¤¶È
+	float dist = 0;
+	int xx;
+	int yy;
 
-    for(int i=0; i<genomelength; i++) {
-      xx = genome.gene(i);
-      yy = genome.gene( (i+1)%genomelength );
-      dist += DISTANCE[xx-1][yy-1];
-    }
+	for (int i = 0; i < genomelength; i++) {
+		xx = genome.gene(i);
+		yy = genome.gene((i + 1) % genomelength);
+		dist += DISTANCE[xx - 1][yy - 1];
+	}
 
-  return dist;
+	return dist;
 }
 
 //TSPÎÊÌâµÄÈ¾É«Ìå³õÊ¼»¯Ëã×Ó
 void TSPInitializer(GAGenome& g) {
-  GA1DArrayGenome<int> &genome=(GA1DArrayGenome<int> &)g;
+	GA1DArrayGenome<int> &genome = dynamic_cast<GA1DArrayGenome<int> &>(g);
 
-  int genomelength = genome.size();
-  int i,town;
-  static bool visit[MAX_TOWNS];
+	int genomelength = genome.size();
+	int i, town;
+	bool visit[MAX_TOWNS]{ false };
 
-  memset(visit, false, MAX_TOWNS*sizeof(bool));
-  town=GARandomInt(1,genomelength);//GARandomInt(1,genomelength)Éú³É1µ½genomelengthÖ®¼äµÄÒ»¸ö¾ùÔÈËæ»úÕûÊı
-  visit[town-1]=true;
-  genome.gene(0, town);//genome.gene(0, town)ÉèÖÃ¸ÃÈ¾É«ÌåµÚ0¸ö»ùÒòÎ»ÉÏµÄ»ùÒòÖµÎªtown
- 
-  for( i=1; i<genomelength; i++) {
-    do {
-      town=GARandomInt(1,genomelength);
-    } while (visit[town-1]);
-    visit[town-1]=true;
-    genome.gene(i, town);
-  }	
+	for (i = 0; i < genomelength; i++) {
+		do {
+			town = GARandomInt(1, genomelength);//GARandomInt(1,genomelength)Éú³É1µ½genomelengthÖ®¼äµÄÒ»¸ö¾ùÔÈËæ»úÕûÊı
+		} while (visit[town - 1]);
+		visit[town - 1] = true;
+		genome.gene(i, town);//genome.gene(0, town)ÉèÖÃ¸ÃÈ¾É«ÌåµÚ0¸ö»ùÒòÎ»ÉÏµÄ»ùÒòÖµÎªtown
+	}
 }
 
 //Õë¶ÔTSPÎÊÌâµÄÈ¾É«Ìå±äÒìËã×Ó£¬pmutÎª±äÒì¸ÅÂÊ
 int TSPMutator(GAGenome& g, float pmut) {
-  GA1DArrayGenome<int> &genome=(GA1DArrayGenome<int> &)g;
-  int i;
+	GA1DArrayGenome<int> &genome = dynamic_cast<GA1DArrayGenome<int> &>(g);
 
-  int genomelength = genome.size();
-  float nmutator = pmut*genomelength;//Òª¸Ä±äµÄ±ßµÄÊıÁ¿
+	int genomelength = genome.size();
+	float nmutator = 0;//Òª¸Ä±äµÄ±ßµÄÊıÁ¿
+	for (size_t i = 0; i < genomelength; i++)
+	{
+		if (GARandomFloat() < pmut)
+		{
+			nmutator++;
+		}
+	}
+	int imutator = 0;
+	while (nmutator - imutator >= 2) {
+		if (GARandomFloat() < 0.5) {//GARandomFloat()Éú³É0µ½1Ö®¼äµÄÒ»¸ö¾ùÔÈËæ»ú¸¡µãÊı
+		  //ÒÔ0.5¸ÅÂÊÊ¹ÓÃÏà»¥½»»»±äÒì
+			int swapIndex1 = GARandomInt(0, genomelength - 1);
+			int swapIndex2 = GARandomInt(0, genomelength - 1);
+			int tmp;
+			tmp = genome.gene(swapIndex2);
+			genome.gene(swapIndex2, genome.gene(swapIndex1));
+			genome.gene(swapIndex1, tmp);// swap only one time
+			imutator += 4;
+		}
+		else
+		{
+			//ÒÔ0.5¸ÅÂÊÊ¹ÓÃ·´×ª±äÒì
+			unsigned int inversion_start = GARandomInt(0, genomelength - 1);
+			unsigned int inversion_end = GARandomInt(0, genomelength - 1);
+			if (inversion_start > inversion_end)
+			{
+				swap(inversion_start, inversion_end);
+			}
 
-  int imutator=0;
-  while( imutator<nmutator){
-    if (GARandomFloat()<0.5) {//GARandomFloat()Éú³É0µ½1Ö®¼äµÄÒ»¸ö¾ùÔÈËæ»ú¸¡µãÊı
-	  //ÒÔ0.5¸ÅÂÊÊ¹ÓÃÏà»¥½»»»±äÒì
-	  int swapIndex1 = GARandomInt(0,genomelength-1);
-	  int swapIndex2 = GARandomInt(0,genomelength-1);
-	  int tmp;
-	  tmp = genome.gene(swapIndex2);
-	  genome.gene(swapIndex2, genome.gene(swapIndex1) );
-	  genome.gene(swapIndex1, tmp );// swap only one time
-	  imutator+=4;
-    }else
-	  {
-	  //ÒÔ0.5¸ÅÂÊÊ¹ÓÃ·´×ª±äÒì
-	  int inversion_start, inversion_end, tmp;
-	  inversion_start = GARandomInt(0,genomelength-1);
-	  inversion_end = GARandomInt(0,genomelength-1);
-	  if(inversion_start > inversion_end)
-	  {
-		  tmp = inversion_start;
-		  inversion_start = inversion_end;
-		  inversion_end = tmp;
-	  }
-	   
-	  for(i=inversion_start;inversion_start<inversion_end; inversion_start++, inversion_end-- )
-	  {
-		  tmp = genome.gene(inversion_start);
-		  genome.gene(inversion_start, genome.gene(inversion_end) );
-		  genome.gene(inversion_end, tmp ); 
-	  }  
-	  imutator+=2;
-    }
-  }
+			for (; inversion_start < inversion_end; inversion_start++, inversion_end--)
+			{
+				genome.swap(inversion_start, inversion_end);
+			}
+			imutator += 2;
+		}
+	}
 
-  return (1);
+	return imutator;
 }
 
+
+void HalfCrossover(const GA1DArrayGenome<int> & parent1,
+	const GA1DArrayGenome<int> & parent2,
+	GA1DArrayGenome<int> & child,
+	unsigned int a, unsigned int b) 
+{
+	auto l = b - a;
+	child.copy(parent2, a, a, l);
+	bool visited[MAX_TOWNS]{ false };
+	for (size_t i = a; i < b; i++)
+	{
+		visited[child.gene(i)] = true;
+	}
+	int childi = 0;
+	for (size_t i = 0; i < parent1.size(); i++)
+	{
+		if (childi == a)
+		{
+			childi = b;
+		}
+
+		auto parentGene = parent1.gene(i);
+		if (!visited[parentGene])
+		{
+			visited[parentGene] = true;
+			child.gene(childi, parentGene);
+			childi++;
+		}
+	}
+}
 
 //Õë¶ÔTSPÎÊÌâµÄÈ¾É«Ìå½»²æËã×Ó
 int TSPCrossover(const GAGenome& g1, const GAGenome& g2, GAGenome* c1, GAGenome* c2) {
-  GA1DArrayGenome<int> parent1=(GA1DArrayGenome<int> &)g1;
-  GA1DArrayGenome<int> parent2=(GA1DArrayGenome<int> &)g2;
+	auto & parent1 = dynamic_cast<const GA1DArrayGenome<int> &>(g1);
+	auto & parent2 = (GA1DArrayGenome<int> &)g2;
 
-  int genomelength = parent1.size();
+	int genomelength = parent1.size();
 
-  int nc=0;
+	int nc = 0;
 
-  GA1DArrayGenome<int> &child1=(GA1DArrayGenome<int> &)*c1;
-  GA1DArrayGenome<int> &child2=(GA1DArrayGenome<int> &)*c2;
+	unsigned int a = GARandomInt(0, parent1.size());
+	unsigned int b = GARandomInt(0, parent2.size());
+	if (a > b)
+	{
+		swap(a, b);
+	}
+	auto l = b - a;
 
-  if(c1)  {child1 = parent2; nc++;}
-  if(c2)  {child2 = parent1; nc++;}
+	if (c1) {
+		auto & child1 = dynamic_cast<GA1DArrayGenome<int> &>(*c1);
+		HalfCrossover(parent1, parent2, child1, a, b);
+		nc++;
+	}
+	if (c2) { 
+		auto & child2 = dynamic_cast<GA1DArrayGenome<int> &>(*c2);
+		HalfCrossover(parent1, parent2, child2, a, b);
+		nc++;
+	}
 
-  /////
-  //´Ë´¦Ìí¼Ó´úÂëÊµÏÖ×Ô¼ºµÄ½»²æËã×Ó
-  /////
-
-  return nc;
+	return nc;
 }
 
 //½«Ö¸¶¨È¾É«ÌåµÄÂÃĞĞÂ·ÏßÊä³öµ½Ö¸¶¨ÎÄ¼ş
-void writeTSPPath(ostream & os, GAGenome& g) 
+void writeTSPPath(ostream & os, GAGenome& g)
 {
 	GA1DArrayGenome<int> & genome = (GA1DArrayGenome<int> &)g;
 	int genomelength = genome.size();
-	for(int i=0; i<genomelength; i++)
+	for (int i = 0; i < genomelength; i++)
 	{
 		int xx = genome.gene(i);
-		os << xx <<"    " <<x[xx-1] << "      "<<y[xx-1] << "\n";
+		os << xx << "    " << x[xx - 1] << "      " << y[xx - 1] << "\n";
 	}
 }

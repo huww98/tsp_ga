@@ -7,6 +7,7 @@
 ---------------------------------------------------------------------------- */
 #include <string.h>
 #include <math.h>
+#include <algorithm>
 #include "GAPopulation.h"
 #include "GASelector.h"
 #include "garandom.h"
@@ -324,7 +325,20 @@ GAPopulation::order(GAPopulation::SortOrder flag) {
 }
 
 
-// Sort using the quicksort method.  The sort order depends on whether a high 
+bool rawAscendingComp(GAGenome* a, GAGenome* b) {
+	return a->score() < b->score();
+}
+bool rawDescendingComp(GAGenome* a, GAGenome* b) {
+	return a->score() > b->score();
+}
+bool scaledAscendingComp(GAGenome* a, GAGenome* b) {
+	return a->fitness() < b->fitness();
+}
+bool scaledDescendingComp(GAGenome* a, GAGenome* b) {
+	return a->fitness() > b->fitness();
+}
+
+// Sort using std::sort.  The sort order depends on whether a high 
 // number means 'best' or a low number means 'best'.  Individual 0 is always
 // the 'best' individual, Individual n-1 is always the 'worst'.
 //   We may sort either array of individuals - the array sorted by raw scores
@@ -335,9 +349,9 @@ GAPopulation::sort(GABoolean flag, SortBasis basis) const {
   if(basis == RAW){
     if(rsorted == gaFalse || flag == gaTrue){
       if(sortorder == LOW_IS_BEST)
-	GAPopulation::QuickSortAscendingRaw(This->rind, 0, n-1);
+		  std::sort(This->rind, This->rind + n, rawAscendingComp);
       else
-	GAPopulation::QuickSortDescendingRaw(This->rind, 0, n-1);
+		  std::sort(This->rind, This->rind + n, rawDescendingComp);
       This->selectready = gaFalse;
     }
     This->rsorted = gaTrue;
@@ -345,9 +359,9 @@ GAPopulation::sort(GABoolean flag, SortBasis basis) const {
   else if(basis == SCALED){
     if(ssorted == gaFalse || flag == gaTrue){
       if(sortorder == LOW_IS_BEST)
-	GAPopulation::QuickSortAscendingScaled(This->sind, 0, n-1);
+		  std::sort(This->sind, This->sind + n, scaledAscendingComp);
       else
-	GAPopulation::QuickSortDescendingScaled(This->sind, 0, n-1);
+		  std::sort(This->sind, This->sind + n, scaledDescendingComp);
       This->selectready = gaFalse;
     }
     This->ssorted = gaTrue;
