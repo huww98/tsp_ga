@@ -1,0 +1,74 @@
+From ab9b4ef75f6e5b0731e6a7d8630f9f1cf7bb45f6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=E8=83=A1=E7=8E=AE=E6=96=87?= <huww98@outlook.com>
+Date: Fri, 7 Dec 2018 23:33:06 +0800
+Subject: [PATCH] =?UTF-8?q?=E6=9A=82=E5=AE=9A=E6=8F=90=E4=BA=A4=E7=89=88?=
+ =?UTF-8?q?=E6=9C=AC?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ ga/GAPopulation.cpp | 24 +++++++++++++++++++-----
+ 1 file changed, 19 insertions(+), 5 deletions(-)
+
+diff --git a/ga/GAPopulation.cpp b/ga/GAPopulation.cpp
+index 62423ff..cdc7a8b 100644
+--- a/ga/GAPopulation.cpp
++++ b/ga/GAPopulation.cpp
+@@ -7,6 +7,7 @@
+ ---------------------------------------------------------------------------- */
+ #include <string.h>
+ #include <math.h>
++#include <algorithm>
+ #include "GAPopulation.h"
+ #include "GASelector.h"
+ #include "garandom.h"
+@@ -324,7 +325,20 @@ GAPopulation::order(GAPopulation::SortOrder flag) {
+ }
+ 
+ 
+-// Sort using the quicksort method.  The sort order depends on whether a high 
++bool rawAscendingComp(GAGenome* a, GAGenome* b) {
++	return a->score() < b->score();
++}
++bool rawDescendingComp(GAGenome* a, GAGenome* b) {
++	return a->score() > b->score();
++}
++bool scaledAscendingComp(GAGenome* a, GAGenome* b) {
++	return a->fitness() < b->fitness();
++}
++bool scaledDescendingComp(GAGenome* a, GAGenome* b) {
++	return a->fitness() > b->fitness();
++}
++
++// Sort using std::sort.  The sort order depends on whether a high 
+ // number means 'best' or a low number means 'best'.  Individual 0 is always
+ // the 'best' individual, Individual n-1 is always the 'worst'.
+ //   We may sort either array of individuals - the array sorted by raw scores
+@@ -335,9 +349,9 @@ GAPopulation::sort(GABoolean flag, SortBasis basis) const {
+   if(basis == RAW){
+     if(rsorted == gaFalse || flag == gaTrue){
+       if(sortorder == LOW_IS_BEST)
+-	GAPopulation::QuickSortAscendingRaw(This->rind, 0, n-1);
++		  std::sort(This->rind, This->rind + n, rawAscendingComp);
+       else
+-	GAPopulation::QuickSortDescendingRaw(This->rind, 0, n-1);
++		  std::sort(This->rind, This->rind + n, rawDescendingComp);
+       This->selectready = gaFalse;
+     }
+     This->rsorted = gaTrue;
+@@ -345,9 +359,9 @@ GAPopulation::sort(GABoolean flag, SortBasis basis) const {
+   else if(basis == SCALED){
+     if(ssorted == gaFalse || flag == gaTrue){
+       if(sortorder == LOW_IS_BEST)
+-	GAPopulation::QuickSortAscendingScaled(This->sind, 0, n-1);
++		  std::sort(This->sind, This->sind + n, scaledAscendingComp);
+       else
+-	GAPopulation::QuickSortDescendingScaled(This->sind, 0, n-1);
++		  std::sort(This->sind, This->sind + n, scaledDescendingComp);
+       This->selectready = gaFalse;
+     }
+     This->ssorted = gaTrue;
+-- 
+2.20.0.windows.1
+
